@@ -13,7 +13,7 @@ from tqdm import tqdm
 from torch.utils.tensorboard import SummaryWriter
 
 from mydataset import create_vocab, load_corpus, PennDataset
-from model import FFNLM, TextRNN, TextLSTM, BiLSTM
+from model import FFNLM, TextRNN, AttRNN, TextLSTM, BiLSTM
 from utils import train_one_epoch, evaluate, get_parameter_number
 
 
@@ -58,6 +58,8 @@ def train(args):
         model = FFNLM(n_step, len(word2idx), m=m, n_hidden=n_hidden)
     elif args.model == "rnn":
         model = TextRNN(len(word2idx), emb_size=m, n_hidden=n_hidden, word_emb=args.word_emb_path)
+    elif args.model == "atrnn":
+        model = AttRNN(len(word2idx), emb_size=m, n_hidden=n_hidden, device=device)
     elif args.model == "lstm":
         model = TextLSTM(len(word2idx), emb_size=m, n_hidden=n_hidden, device=device)
     elif args.model == "bilstm":

@@ -16,7 +16,7 @@ class PennDataset(Dataset):
                 inputs = []
                 for word in sen[i: i + n_step]:
                     inputs += [self.word2idx(word)]
-                target = [self.word2idx(word)]
+                target = [self.word2idx(sen[i + n_step])]
                 self.data.append([inputs, target])
 
     def __len__(self):

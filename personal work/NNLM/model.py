@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+from torch.nn.functional import softmax
 from utils import load_word_emb_pretrained
 
 
@@ -45,6 +46,39 @@ class TextRNN(nn.Module):
         # hidden : [num_layers(=1) * num_directions(=1), batch_size, n_hidden]
         outputs = outputs[-1] # [batch_size, num_directions(=1) * n_hidden]
         model = self.W(outputs) + self.b # model : [batch_size, n_class]
+        return model
+
+
+class AttRNN(nn.Module):
+    def __init__(self, n_class, emb_size=256, n_hidden=512, device='cuda:0'):
+        super(AttRNN, self).__init__()
+        self.C = nn.Embedding(n_class, embedding_dim=emb_size)
+        self.rnn = nn.RNN(input_size=emb_size, hidden_size=n_hidden)
+        self.W = nn.Linear(2*n_hidden, n_class, bias=False)
+        self.b = nn.Parameter(torch.ones([n_class]))
+        self.n_hidden = n_hidden
+        self.device = device
+
+    def forward(self, X):
+        X = self.C(X)
+        X = X.transpose(0, 1)  # X : [n_step, batch_size, embeding size]
+        outputs, hidden = self.rnn(X)
+        # outputs : [n_step, batch_size, num_directions(=1) * n_hidden]
+        # hidden : [num_layers(=1) * num_directions(=1), batch_size, n_hidden]
+        output = outputs[-1]
+        attention = []
+        for it in outputs[:-1]:
+            attention.append(torch.mul(it, output).sum(dim=1).tolist())
+        self.attention = torch.tensor(attention).to(self.device)
+        self.attention = self.attention.transpose(0, 1)
+        self.attention = softmax(self.attention, dim=1).transpose(0, 1)
+        # get soft attention
+        attention_output = torch.zeros(outputs.size()[1], self.n_hidden).to(self.device)
+        for i in range(outputs.size()[0] - 1):
+            attention_output += torch.mul(self.attention[i], outputs[i].transpose(0, 1)).transpose(0, 1)
+        output = torch.cat((attention_output, output), 1)
+        # joint ouput output:[batch_size, 2*n_hidden]
+        model = self.W(output) + self.b  # model : [batch_size, n_class]
         return model
 
 
