@@ -30,19 +30,12 @@ def collate_fn(examples):
 
 def train():
 
-    train_data, valid_data, categories = data_process(
-        train_data_path=data_path + 'train.tsv',
-        valid_data_path=data_path + 'valid.tsv')
+    train_data, valid_data, categories, exceeding_ratio= data_process(train_data_path=data_path + 'train.tsv', valid_data_path=data_path + 'valid.tsv')
 
     train_dataset = SCDataset(train_data)
     valid_dataset = SCDataset(valid_data)
-    train_dataloader = DataLoader(train_dataset,
-                                  batch_size=batch_size,
-                                  collate_fn=collate_fn,
-                                  shuffle=True)
-    valid_dataloader = DataLoader(valid_dataset,
-                                  batch_size=1,
-                                  collate_fn=collate_fn)
+    train_dataloader = DataLoader(train_dataset, batch_size=batch_size, collate_fn=collate_fn, shuffle=True)
+    valid_dataloader = DataLoader(valid_dataset, batch_size=1, collate_fn=collate_fn)
 
     model = models.Bert_LSTM(len(categories), pretrained_model_name)
     model.to(device)

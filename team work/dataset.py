@@ -1,4 +1,3 @@
-import torch
 from torch.utils.data import Dataset
 
 
@@ -6,9 +5,11 @@ def data_process(train_data_path, valid_data_path):
     train_data = []
     valid_data = []
     categories = set()
+    exceeding_sample = 0
     with open(train_data_path, 'r', encoding="utf-8") as fr:
         for line in fr.readlines():
             cls, sentence = line.strip().split(",", 1)
+            exceeding_sample += 1 if len(sentence) > 512 else 0
             train_data.append((cls, sentence))
             categories.add(cls)
 
@@ -17,7 +18,8 @@ def data_process(train_data_path, valid_data_path):
             cls, sentence = line.strip().split(",", 1)
             valid_data.append((cls, sentence))
 
-    return train_data, valid_data, categories
+    exceeding_ratio = exceeding_sample / len(train_data)
+    return train_data, valid_data, categories, exceeding_ratio
 
 
 class SCDataset(Dataset):

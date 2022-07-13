@@ -19,7 +19,15 @@ class Bert_FFN(BertSCModel):
 
     def __init__(self, class_size, pretrained_name='bert-base-uncased'):
         super(Bert_FFN, self).__init__(pretrained_name)
-        self.classifier = nn.Linear(768, class_size)
+        self.classifier = nn.Sequential(
+            torch.nn.Linear(768, 512),
+            torch.nn.Dropout(0.3),
+            torch.nn.ReLU(),
+            torch.nn.Linear(512, 64),
+            torch.nn.Dropout(0.2),
+            torch.nn.ReLU(),
+            torch.nn.Linear(64, class_size)
+        )
 
     def forward(self, inputs):
         input_ids, input_tyi, input_attn_mask = inputs['input_ids'], inputs['token_type_ids'], inputs['attention_mask']
@@ -44,3 +52,14 @@ class Bert_LSTM(BertSCModel):
         cls_output, (_, _) = self.classifier(cls_states)
         categories_numberic = cls_output[-1]
         return categories_numberic
+
+
+class Bert_SimCSE(BertSCModel):
+    def __init__(self, class_size, pretrained_name='bert-base-uncased'):
+        super(Bert_SimCSE, self).__init__(pretrained_name)
+
+    def forward(self, inputs):
+        input_ids, input_tyi, input_attn_mask = inputs['input_ids'], inputs['token_type_ids'], inputs['attention_mask']
+        output = self.bert(input_ids, input_tyi, input_attn_mask)
+        output = output.last_hidden_state[:, 0]
+        return output

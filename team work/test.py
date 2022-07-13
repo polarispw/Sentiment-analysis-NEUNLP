@@ -4,7 +4,6 @@ from tqdm import tqdm
 from torch.utils.data import DataLoader
 from transformers import BertTokenizer
 from transformers import logging
-from models import Bert_FFN
 from dataset import SCDataset
 
 
