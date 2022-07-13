@@ -18,7 +18,7 @@ def data_process(train_data_path, valid_data_path):
             cls, sentence = line.strip().split(",", 1)
             valid_data.append((cls, sentence))
 
-    exceeding_ratio = exceeding_sample / len(train_data)
+    exceeding_ratio = 100 * (exceeding_sample / len(train_data))
     return train_data, valid_data, categories, exceeding_ratio
 
 

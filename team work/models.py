@@ -9,6 +9,7 @@ class BertSCModel(nn.Module):
         super(BertSCModel, self).__init__()
         self.bert = BertModel.from_pretrained(pretrained_name, return_dict=True, output_hidden_states=output_hidden_state)
 
+
     def forward(self, inputs):
         input_ids, input_tyi, input_attn_mask = inputs['input_ids'], inputs['token_type_ids'], inputs['attention_mask']
         output = self.bert(input_ids, input_tyi, input_attn_mask)
