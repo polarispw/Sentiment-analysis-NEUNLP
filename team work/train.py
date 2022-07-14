@@ -1,6 +1,5 @@
 import torch
 import torch.nn as nn
-from torch.optim import Adam
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 import os
@@ -45,12 +44,17 @@ def train(args):
     train_dataloader = DataLoader(train_dataset, batch_size=batch_size, collate_fn=collate_fn, shuffle=True)
     valid_dataloader = DataLoader(valid_dataset, batch_size=1, collate_fn=collate_fn)
 
-    model = models.Bert_LSTM(len(categories), pretrained_model_name)
+    model = models.BertBase(len(categories), pretrained_model_name, args.layers, args.pooling_type)
+    model.load_state_dict(torch.load(args.ck_point), strict=False) if args.ck_point != '' else ...
     model.to(device)
 
-    para_groups = collate_para(model, [args.lr], args.lr_decay_rate, discr=args.discriminative_lr)
+    if args.freeze_bert:
+        para_groups = model.classifier.parameters()
+    else:
+        para_groups = collate_para(model, [args.lr], args.lr_decay_rate, discr=args.discriminative_lr)
+
     optimizer = AdamW(para_groups, lr=args.lr)
-    total_steps = len(train_data) * args.epochs
+    total_steps = (len(train_data) * args.epochs) / args.batch_size
     scheduler = build_scheduler(args.scheduler,
                                 optimizer,
                                 int(total_steps/10), # 10%的steps用来warm up
@@ -103,8 +107,9 @@ def train(args):
         write_tb(tb_log, ['valid acc'], [acc / len(valid_dataloader)], epoch)
 
         if epoch % 1 == 0:
-            filename = f"bert_sc_epoch {epoch}.pth"
+            filename = f"bert_epoch_{epoch}_model.pth"
             save_pretrained(model, log_dir, filename)
+            torch.save(model.state_dict(), os.path.join(log_dir,f"bert_epoch_{epoch}_sdict.pth"))
 
 
 if __name__ == '__main__':
@@ -119,17 +124,19 @@ if __name__ == '__main__':
     parser.add_argument('--device', type=str, default=device)
     parser.add_argument('--data-path', type=str, default="./data/")
 
-    parser.add_argument('--epochs', type=int, default=5)
+    parser.add_argument('--epochs', type=int, default=4)
     parser.add_argument('--batch-size', type=int, default=16)
     parser.add_argument('--lr', type=float, default=2e-5)
     parser.add_argument('--discriminative_lr', type=bool, default=False)
-    parser.add_argument('--lr-decay-rate', type=float, default=0.9)
-    parser.add_argument('--scheduler', type=str, default='linear')
+    parser.add_argument('--lr-decay-rate', type=float, default=0.95)
+    parser.add_argument('--scheduler', type=str, default='linear', choices=['constant', 'linear', 'cosine'])
 
     parser.add_argument('--model', type=str, default=pretrained_model_name)
-    parser.add_argument('--n-step', type=int, default=5)
-    parser.add_argument('--embedding-size', type=int, default=512)
-    parser.add_argument('--n-hidden', type=int, default=256)
+    parser.add_argument('--ck-point', type=str, default='')
+    parser.add_argument('--layers', type=int, nargs='+', default=[-2])
+    # -2 means use pooled output, -1 means concat all layers, a b c means concat ath bth cth layers' CLS
+    parser.add_argument('--pooling_type', type=str, default=None, choices=[None, 'mean', 'max'])
+    parser.add_argument('--freeze-bert', type=bool, default=True)
 
     parser.add_argument('--save-step', type=int, default=500)
 
