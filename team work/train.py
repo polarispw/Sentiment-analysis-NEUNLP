@@ -85,8 +85,9 @@ def train(args):
 
             total_loss += loss.item()
             train_dataloader.desc = f"Training Epoch {epoch} loss: {total_loss / (step + 1):.6f},"
+            write_tb(tb_log, ['base_lr'], [optimizer.param_groups[-1]['lr']], total_step)
             if total_step % 250 == 0:
-                write_tb(tb_log, ['train loss'], [total_loss / (step + 1)], total_step)
+                write_tb(tb_log, ['train loss', 'base_lr'], [total_loss / (step + 1), optimizer.param_groups[-1]['lr']], total_step)
             total_step += 1
 
         acc = 0
