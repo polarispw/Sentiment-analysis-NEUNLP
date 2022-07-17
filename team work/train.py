@@ -36,7 +36,7 @@ def train(args):
     batch_size = args.batch_size
 
     train_data, valid_data, categories, exceeding_ratio = data_process(
-        train_data_path=data_path + 'train.tsv',
+        train_data_path=data_path + 'aug_train.tsv',
         valid_data_path=data_path + 'valid.tsv')
 
     train_dataset = SCDataset(train_data)
@@ -45,7 +45,10 @@ def train(args):
     valid_dataloader = DataLoader(valid_dataset, batch_size=1, collate_fn=collate_fn)
 
     model = models.BertBase(len(categories), pretrained_model_name, args.layers, args.pooling_type)
+    model.bert.resize_token_embeddings(len(tokenizer))
     model.load_state_dict(torch.load(args.ck_point), strict=False) if args.ck_point != '' else ...
+    # model = torch.load(args.ck_point)
+
     model.to(device)
 
     if args.freeze_bert:
@@ -57,7 +60,7 @@ def train(args):
     total_steps = (len(train_data) * args.epochs) / args.batch_size
     scheduler = build_scheduler(args.scheduler,
                                 optimizer,
-                                int(total_steps/10), # 10%的steps用来warm up
+                                int(total_steps/10), # 10%steps(ewarm up
                                 total_steps)
 
     CE_loss = nn.CrossEntropyLoss()
@@ -75,6 +78,7 @@ def train(args):
     for epoch in range(args.epochs):
 
         total_loss = 0
+        best_acc = 0.82
         train_dataloader = tqdm(train_dataloader, file=sys.stdout)
         model.train()
         for step, batch in enumerate(train_dataloader):
@@ -97,19 +101,19 @@ def train(args):
         acc = 0
         valid_dataloader = tqdm(valid_dataloader, file=sys.stdout)
         model.eval()
-        for step, batch in enumerate(valid_dataloader):
-            inputs, targets = [x.to(device) for x in batch]
+        for v_step, v_batch in enumerate(valid_dataloader):
+            inputs, targets = [x.to(device) for x in v_batch]
             with torch.no_grad():
                 bert_output = model(inputs)
                 acc += (bert_output.argmax(dim=1) == targets).sum().item()
-            valid_dataloader.desc = f"Valid_Acc: {acc / (step+1):.6f}"
+            valid_dataloader.desc = f"Valid Epoch {epoch} loss: {acc / (v_step + 1):.6f},"
 
         write_tb(tb_log, ['valid acc'], [acc / len(valid_dataloader)], epoch)
-
-        if epoch % 1 == 0:
-            filename = f"bert_epoch_{epoch}_model.pth"
+        if acc / len(valid_dataloader) > best_acc:
+            best_acc = acc / len(valid_dataloader)
+            filename = f"best_model.pth"
+            torch.save(model.state_dict(), os.path.join(log_dir, f"best_sdict.pth"))
             save_pretrained(model, log_dir, filename)
-            torch.save(model.state_dict(), os.path.join(log_dir,f"bert_epoch_{epoch}_sdict.pth"))
 
 
 if __name__ == '__main__':
@@ -126,19 +130,19 @@ if __name__ == '__main__':
 
     parser.add_argument('--epochs', type=int, default=4)
     parser.add_argument('--batch-size', type=int, default=16)
-    parser.add_argument('--lr', type=float, default=2e-5)
-    parser.add_argument('--discriminative_lr', type=bool, default=False)
-    parser.add_argument('--lr-decay-rate', type=float, default=0.95)
-    parser.add_argument('--scheduler', type=str, default='linear', choices=['constant', 'linear', 'cosine'])
+    parser.add_argument('--lr', type=float, default=5e-6)
+    parser.add_argument('--discriminative_lr', type=bool, default=True)
+    parser.add_argument('--lr-decay-rate', type=float, default=0.97)
+    parser.add_argument('--scheduler', type=str, default='cosine', choices=['constant', 'linear', 'cosine'])
 
     parser.add_argument('--model', type=str, default=pretrained_model_name)
-    parser.add_argument('--ck-point', type=str, default='')
+    parser.add_argument('--ck-point', type=str, default='pretrain_model.pth')
     parser.add_argument('--layers', type=int, nargs='+', default=[-2])
     # -2 means use pooled output, -1 means concat all layers, a b c means concat ath bth cth layers' CLS
     parser.add_argument('--pooling_type', type=str, default=None, choices=[None, 'mean', 'max'])
-    parser.add_argument('--freeze-bert', type=bool, default=True)
+    parser.add_argument('--freeze-bert', type=bool, default=False)
 
-    parser.add_argument('--save-step', type=int, default=500)
+    parser.add_argument('--save-step', type=int, default=1000)
 
     opt = parser.parse_args()
 
