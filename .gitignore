@@ -128,8 +128,4 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
-docs/
-sentcls_demo/
-team work/SimCSE-master
 team work/runs
-team work/BERT4doc-Classification-master
